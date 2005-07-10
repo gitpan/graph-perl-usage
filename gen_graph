@@ -6,10 +6,11 @@ use Getopt::Long;
 use File::Spec;
 use File::Find;
 use strict;
+use Time::HiRes qw/time/;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.02;
+$VERSION = 0.03;
 
 # mapping file format to extension
 my $ext = {
@@ -29,6 +30,7 @@ my $opt = {
   help => 0,
   recurse => '',
   versions => 0,
+  debug => 0,
   };
 # mapping usage count to color name
 my $color_table = {
@@ -82,6 +84,7 @@ sub get_options
   # hash with options for GetOptions
   my %options = (
     'color=i' => \$opt->{color},
+    'debug' => \$opt->{debug},
     'format=s' => \$opt->{format},
     'help' => \$opt->{help},
     'inc=s' => \$opt->{inc},
@@ -108,6 +111,10 @@ sub get_options
 sub _inc
   {
   # generate list of paths from @INC (excluding doubles)
+  my $opt = shift;
+
+  my $no_doubles = 1; $no_doubles = 0 if $opt->{recurse};
+
   my @inc;
   my $current = quotemeta(File::Spec->curdir());
   PATH_LOOP:
@@ -116,14 +123,17 @@ sub _inc
     # not "." and "lib"
     next if $i =~ /^($current|lib)\z/;
 
-#    # go throught the already accumulated path and if one of
-#    # them matches the start of the current, we can ignore it
-#    # because it is a sub-directory
-#    for my $p (@inc)
-#      {
-#      my $pr = quotemeta($p);
-#      next PATH_LOOP if $i =~ /^$pr/;
-#      }
+    if ($no_doubles)
+      {
+      # go throught the already accumulated path and if one of
+      # them matches the start of the current, we can ignore it
+      # because it is a sub-directory
+      for my $p (@inc)
+        {
+        my $pr = quotemeta($p);
+        next PATH_LOOP if $i =~ /^$pr/;
+        }
+      }
     push @inc, $i;
     }
   @inc;
@@ -140,7 +150,6 @@ sub find_file
 
   for my $i (@inc)
     {
-    #@dir = File::Spec->splitpath($i);
     my $file = File::Spec->catfile ($i, @parts);
     return $file if -f $file;
     }
@@ -155,9 +164,9 @@ sub gather_data
   my $graph = Graph::Easy->new();
 
   my @inc = split /\s*,\s*/, $opt->{inc};
-  @inc = _inc() unless $opt->{inc};
+  @inc = _inc($opt) unless $opt->{inc};
 
-  print "\n Including:\n   ", join ("\n   ", @inc), "\n";
+  print "\n  Including:\n    ", join ("\n    ", @inc), "\n";
 
   if ($opt->{recurse})
     {
@@ -252,7 +261,8 @@ sub parse_file
     if ($line =~ /^\s*(our\s*)?\$VERSION\s*=\s*["']?(.*?)['"]?\s*;/)
       {
       my $v = $2;
-      $ver = $v unless $v =~ /eval/;
+      $ver = $v unless $v =~ /(Revision|do|eval|sprintf|")/;	# doesn't look like a plain VERSION
+      $ver = $1 if $v =~ /Revision: ([\d\.]+)/;		# extract VERSION
       }
 
     if ($line =~ /^\s*package\s+($qq)\s*;/)
@@ -352,10 +362,26 @@ sub output_file
     $file = '>' . $file;
     }
   
+  my $starttime = time();
+  my $rc = $graph->$method();
+
+  if ($opt->{debug})
+    {
+    $starttime = time() - $starttime;
+    printf ("  Debug: Took %0.2f seconds to generate output.\n", $starttime);
+    }
+
+  $starttime = time();
   my $FILE;
   open $FILE, $file or die ("Cannot open '$file': $!");
-  print $FILE $graph->$method();
+  print $FILE $rc;
   close $FILE;
+
+  if ($opt->{debug})
+    {
+    $starttime = time() - $starttime;
+    printf ("  Debug: Took %0.2f seconds to write to \"$file\".\n", $starttime);
+    }
 
 #  print $graph->$method();
   }
@@ -376,13 +402,12 @@ perl_graph_usage - generate graph with usage patterns from Perl packages
 
 Options:
 
-	--color=0		uncolored output
-	--color=1		default, colorize nodes on how much packages they use
-	--color=2		colorize nodes on how much packages use them
-	--nocolor		sets color to 0 (no color at all)
-	--help			print this help and exit
+	--color=X		0: uncolored output
+				1: default, colorize nodes on how much packages they use
+				2: colorize nodes on how much packages use them
+	--nocolor		sets color to 0 (like --color=0, no color at all)
 	--inc=path[,path2,..]	path to source tree or a single file
-				if not specified, %INC from Perl will be used
+				if not specified, @INC from Perl will be used
 	--recurse=p[,p2,..]	recursively track all packages from this package "p"
 	--format		the output format, default "graphviz", valid are:
 				  ascii
@@ -392,8 +417,14 @@ Options:
 				For the latter two formats you need "dot" install.
 	--output		name of the output file, default "usage". The file
 				extension will be determined by the --format option.
+	--versions		include package version number in graph nodes.
+	--debug			print some timing and statistics info.
+
+Help and version:
+
+	--help			print this help and exit
 	--version		print version and exit
-	--versions		include package version number in graph nodes
+
 
 =head1 DESCRIPTION
 

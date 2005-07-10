@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 5;
+   plan tests => 6;
    chdir 't' if -d 't';
    };
 
@@ -24,4 +24,11 @@ $rc = `../gen_graph --help 2>&1`;
 like ($rc, qr/v\d\.\d\d/, 'version found');
 like ($rc, qr/Usage:/, 'help found');
 like ($rc, qr/Options:/, 'help found');
+
+#############################################################################
+# --debug
+
+$rc = `../gen_graph --debug --version 2>&1`;
+
+like ($rc, qr/v\d\.\d\d/, 'version found');
 

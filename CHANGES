@@ -1,6 +1,12 @@
 Revision history for gen_graph - generate graphs from Perl package use statements
 
-2005-07-10 v0.0.2 Tels  5 tests
+2005-07-10 v0.03 Tels  6 tests
+  * remove doubles from @INC when running w/o --recurse
+  * guard against versions with '"' in them (like sprintf etc)
+  * extract VERSION from "Revision: " style version lines
+  * add --debug
+
+2005-07-10 v0.02 Tels  5 tests
   * add options: --help, --version, --color=i, --nocolor, --recurse, --versions
   * implement --recurse, --version
   * match also things like "use A ;" (note space)
@@ -8,5 +14,5 @@ Revision history for gen_graph - generate graphs from Perl package use statement
   * empty --inc uses @INC from Perl
   * add basic tests
 
-2005-07-09 v0.0.1 Tels  0 tests
+2005-07-09 v0.01 Tels  0 tests
   * first version

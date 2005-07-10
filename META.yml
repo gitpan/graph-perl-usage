@@ -1,10 +1,10 @@
 --- #YAML:1.0
 name: graph-perl-usage
-version: 0.02
+version: 0.03
 version_from: gen_graph
 license: gpl
 distribution_type: module
-generated_by: graph-perl-usage version 0.02
+generated_by: graph-perl-usage version 0.03
 installdirs: site
 requires:
   Graph: 0.65
