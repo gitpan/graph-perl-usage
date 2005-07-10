@@ -1,0 +1,420 @@
+#!/usr/bin/perl -w
+
+use lib 'lib';
+use Graph::Easy 0.21;
+use Getopt::Long;
+use File::Spec;
+use File::Find;
+use strict;
+
+use vars qw/$VERSION/;
+
+$VERSION = 0.02;
+
+# mapping file format to extension
+my $ext = {
+  html => 'html',
+  graphviz => 'png',
+  svg => 'svg',
+  ascii => 'txt',
+  };
+# where the user options are stored (plus defaults for them)
+my $opt = {
+  format => 'graphviz',
+  output_file => 'usage',
+  inc => '',
+  color => 1,
+  nocolor => 0,
+  verbose => 0,
+  help => 0,
+  recurse => '',
+  versions => 0,
+  };
+# mapping usage count to color name
+my $color_table = {
+  0  => '#ffffff',
+  1  => '#d0ffd0',
+  2  => '#a0ffa0',
+  3  => '#80ff80',
+  4  => '#80ff50',
+  5  => '#a0ff50',
+  6  => '#ffff80',
+  7  => '#ffff50',
+  8  => '#ffa050',
+  9  => '#ff5050',
+  10 => '#d05050',
+  11 => '#d02020',
+  };
+# all found files to be processed
+my @files;
+
+print "graph usage v$VERSION (c) by Tels bloodgate.com 2005.\n\n";
+
+if (!get_options())
+  {
+  print "\n";
+  require Pod::Usage; Pod::Usage::pod2usage(2);
+  }
+
+if (!exists $ext->{$opt->{format}})
+  {
+  require Carp; Carp::croak ("Unknown output format $opt->{format}");
+  }
+
+print "Gathering data and generating graph...";
+my $graph = gather_data($opt);
+print "done.\n";
+print "Resulting graph has " .
+  scalar $graph->nodes() . " nodes and " . 
+  scalar $graph->edges() . " edges.\n";
+print "Generating output...";
+output_file ($graph, $opt);
+
+print "done.\n";
+print "All done. Have a nice day.\n";
+
+1;
+
+#############################################################################
+
+sub get_options
+  {
+  # hash with options for GetOptions
+  my %options = (
+    'color=i' => \$opt->{color},
+    'format=s' => \$opt->{format},
+    'help' => \$opt->{help},
+    'inc=s' => \$opt->{inc},
+    'nocolor!' => \$opt->{nocolor},
+    'output=s' => \$opt->{output_file},
+    'recurse=s' => \$opt->{recurse},
+    'verbose+' => \$opt->{verbose},
+    'version' => \$opt->{version},
+    'versions!' => \$opt->{versions},
+    );
+  return if @ARGV == 0;			# no options?
+
+  my $rc = GetOptions( %options );
+
+  return if @ARGV > 0 || $opt->{help};	# something left over or help request?
+  exit if $opt->{version};		# print only version
+
+  $opt->{color} = 0 if $opt->{nocolor};
+  delete $opt->{nocolor};
+
+  $rc;
+  }
+
+sub _inc
+  {
+  # generate list of paths from @INC (excluding doubles)
+  my @inc;
+  my $current = quotemeta(File::Spec->curdir());
+  PATH_LOOP:
+  for my $i (sort { length $a <=> length $b } @INC)
+    {
+    # not "." and "lib"
+    next if $i =~ /^($current|lib)\z/;
+
+#    # go throught the already accumulated path and if one of
+#    # them matches the start of the current, we can ignore it
+#    # because it is a sub-directory
+#    for my $p (@inc)
+#      {
+#      my $pr = quotemeta($p);
+#      next PATH_LOOP if $i =~ /^$pr/;
+#      }
+    push @inc, $i;
+    }
+  @inc;
+  }
+
+sub find_file
+  {
+  # Take a package name and a list of include directories and find
+  # the file.
+  my ($package, @inc) = @_;
+
+  # A::B, do'h etc
+  $package =~ s/::/'/g; my @parts = split /'/, $package; $parts[-1] .= '.pm';
+
+  for my $i (@inc)
+    {
+    #@dir = File::Spec->splitpath($i);
+    my $file = File::Spec->catfile ($i, @parts);
+    return $file if -f $file;
+    }
+  undef;
+  }
+
+sub gather_data
+  {
+  # fill @files and return a Graph::Easy object
+  my ($opt) = shift;
+
+  my $graph = Graph::Easy->new();
+
+  my @inc = split /\s*,\s*/, $opt->{inc};
+  @inc = _inc() unless $opt->{inc};
+
+  print "\n Including:\n   ", join ("\n   ", @inc), "\n";
+
+  if ($opt->{recurse})
+    {
+    my $done = {}; my $todo = {};
+    # put all packages todo into $todo
+    for my $p (split /\s*,\s*/, $opt->{recurse})
+      {
+      $todo->{$p} = undef;
+      }
+
+    # as long as we have something to do
+    while (scalar keys %$todo > 0)
+      {
+      my ($package,$undef) = each %$todo;
+
+      # mark package as done
+      delete $todo->{$package};
+      $done->{$package} = undef;
+
+      my $file = find_file ($package, @inc);
+
+      next unless defined $file;
+
+      # parse file and get list of "used" packages
+      my @dst = parse_file ($graph, $opt, $file);
+
+      for my $p (@dst)
+        {
+        if (!exists $done->{$p} && !exists $todo->{$p})
+          {
+          print "    Also todo: $p\n" if $opt->{verbose} > 1;
+          }
+        # put into todo if not already done
+        $todo->{$p} = undef unless exists $done->{$p};
+        }
+      }
+    }
+  else
+    {
+    find ( { wanted => \&wanted, follow => 1 }, @inc );
+
+    print "\n  Found " . scalar @files . " files. Parsing them...\n";
+
+    for my $file (@files)
+      {
+      # open the file and parse it
+      parse_file ($graph, $opt, $file);
+      }
+    }
+
+  colorize($graph) if $opt->{color};
+  $graph;
+  }
+
+sub wanted
+  {
+  # called by find() for each file in path_to_source
+  return unless -f $_ && $_ =~ /\.pm\z/;
+
+  push @files, $File::Find::name;
+  }
+
+sub match_package_name
+  {
+  qr/[a-z][\w:]+/i;
+  }
+
+sub parse_file
+  {
+  # parse a file for "package A; use B;" and then add "A => B" into $graph
+  my ($graph, $opt, $file) = @_;
+
+  print "  At $file\n" if $opt->{verbose} > 0;
+
+  my $FILE;
+  open $FILE, $file or (warn ("Cannot open '$file': $!") && return);
+  my ($line,$src,$name);
+  my $qq = match_package_name();
+  my $in_pod = 0;
+  my @rc;				# for returning found packages
+  my $ver;
+  while (defined ($line = <$FILE>))
+    {
+    last if $line =~ /^__(END|DATA)__/;
+
+    # Pod::HTML starts it's POD with "=head" so cover this case, too
+    $in_pod = 1 if $line =~ /^=(pod|head|over)/;
+    $in_pod = 0 if $line =~ /^=cut/;
+    next if $in_pod;
+
+    # extract VERSION
+    if ($line =~ /^\s*(our\s*)?\$VERSION\s*=\s*["']?(.*?)['"]?\s*;/)
+      {
+      my $v = $2;
+      $ver = $v unless $v =~ /eval/;
+      }
+
+    if ($line =~ /^\s*package\s+($qq)\s*;/)
+      {
+      # skip "package main";
+      next if $1 eq 'main';
+
+      if (defined $src)
+        {
+        # we are about to switch packages, so set version if nec.
+        $src->set_attribute('label', "$name\\nv$ver") if $opt->{versions} && $ver;
+        }
+      $name = $1;
+      # If not yet in graph, add. Store ptr in $src.
+      $src = $graph->add_node($name);
+      $src->set_attribute('background', '#ffffff');	# for no color and dot output
+      $ver = '';
+      }
+
+    # The "^require" should catch require statements inthe outermost scope
+    # while not catching ones inside subroutines. Thats hacky, but better
+    # than to ignore them completely.
+    if ($line =~ /^(require|\s*use)\s+($qq)\s*(qw|[\(;'"])?/ && defined $src)
+      {
+      my $type = $1;
+      my $pck = $2;
+      my $color = '#808080'; $color = 'grey' if $type =~ /require/;
+      next if $pck =~ /v\d/;		# skip "v5..."
+
+      push @rc, $pck;					# for returning it	
+      # if not yet in graph, add.
+      my $dst = $graph->add_node($pck);
+      $dst->set_attribute('background', '#ffffff');	# for no color and dot output
+      print "  $src->{name} => $dst->{name}\n" if $opt->{verbose} > 2;
+
+      # make sure to add each edge only once (double processing or something)
+      my $edge = $graph->edge($src->{name}, $dst->{name});
+      next if $edge;
+
+      $edge = $graph->add_edge ($src, $dst);		# '$src' uses '$dst'
+      $edge->set_attribute('color', $color) if $opt->{color};
+      }
+    }
+
+  $src->set_attribute('label', "$name\\nv$ver") if $src && $opt->{versions} && $ver;
+
+  close $FILE;
+
+  @rc;
+  }
+
+sub colorize
+  {
+  my ($graph) = @_;
+
+  my @nodes = $graph->nodes();
+
+  foreach my $node (@nodes)
+    {
+    my $cnt = 0;
+    if ($opt->{color} == 1)
+      {
+      $cnt = scalar $node->successors();
+      }
+    else
+      {
+      $cnt = scalar $node->predecessors();
+      }
+
+    my $color = $color_table->{$cnt} || '#d00000';
+    $node->set_attribute ('background', $color);
+    $node->set_attribute ('title', "$cnt");
+    }
+  }
+
+sub output_file
+  {
+  # generate the output file
+  my ($graph, $opt) = @_;
+
+  my $file = $opt->{output_file};
+  my $e = $ext->{$opt->{format}};
+  $file .= '.' . $e unless $file =~ /\.$e/;
+  my $method = 'as_' . $opt->{format} . '_file';
+
+  print "\n  Format: $opt->{format}\n";
+  print "  Output to: $file\n";
+  print "  Method: $method\n";
+
+  if ($method =~ 'as_(svg|graphviz)_file')
+    {
+    $file = "|dot -T$e -o '$file'";
+    $method = 'as_graphviz_file';
+    }
+  else
+    {
+    $file = '>' . $file;
+    }
+  
+  my $FILE;
+  open $FILE, $file or die ("Cannot open '$file': $!");
+  print $FILE $graph->$method();
+  close $FILE;
+
+#  print $graph->$method();
+  }
+
+__END__
+
+=pod
+
+=head1 NAME
+
+perl_graph_usage - generate graph with usage patterns from Perl packages
+
+=head1 SYNOPSIS
+
+	./gen_graph --inc=lib/ --format=graphviz --output=usage_graph
+	./gen_graph --nocolor --inc=lib --format=ascii
+	./gen_graph --recurse=Graph::Easy
+
+Options:
+
+	--color=0		uncolored output
+	--color=1		default, colorize nodes on how much packages they use
+	--color=2		colorize nodes on how much packages use them
+	--nocolor		sets color to 0 (no color at all)
+	--help			print this help and exit
+	--inc=path[,path2,..]	path to source tree or a single file
+				if not specified, %INC from Perl will be used
+	--recurse=p[,p2,..]	recursively track all packages from this package "p"
+	--format		the output format, default "graphviz", valid are:
+				  ascii
+				  html
+				  graphviz
+				  svg
+				For the latter two formats you need "dot" install.
+	--output		name of the output file, default "usage". The file
+				extension will be determined by the --format option.
+	--version		print version and exit
+	--versions		include package version number in graph nodes
+
+=head1 DESCRIPTION
+
+Todo
+
+=head2 Output formats
+
+C<html> and C<ascii> are rendered via Graph::Easy. The have thus quite a few limitations
+and only work good for simple graphs. C<svg> and C<graphviz> are rendered via C<dot> and
+can have arbitrary large graphs.
+
+However, for entire source trees like the complete Perl source, the output becomes
+unlegible and cramped.
+
+I hope I can improve this in time.
+
+=head1 LICENSE
+
+=head1 AUTHOR
+
+(c) 2005 by Tels bloodgate.com.
+
+=cut
+

@@ -1,0 +1,19 @@
+
+* if you do a "use Text::Balanced", you also get "Text::Balanced::ErrorMsg" and
+  "Text::Balanced::Extractor", because they are defined in the same file. Should
+  these be recorded as edges in the graph, too?
+
+* it should also catch things like:
+
+  package A; use B;
+  require C;
+  sub foo { require D; }
+  BEGIN { require E; }
+
+  e.g. find A => B, A => C, A => E, but NOT A => D.
+
+  The current heuristics is a bit spotty.
+
+* Edges should as title have the connection (A => B), and nodes a text like:
+  "vX.YZ uses x, is used by y"
+

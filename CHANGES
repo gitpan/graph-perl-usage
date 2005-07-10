@@ -1,0 +1,12 @@
+Revision history for gen_graph - generate graphs from Perl package use statements
+
+2005-07-10 v0.0.2 Tels  5 tests
+  * add options: --help, --version, --color=i, --nocolor, --recurse, --versions
+  * implement --recurse, --version
+  * match also things like "use A ;" (note space)
+  * change option "path_to_source" to "inc"
+  * empty --inc uses @INC from Perl
+  * add basic tests
+
+2005-07-09 v0.0.1 Tels  0 tests
+  * first version
