@@ -6,4 +6,6 @@ LICENSE
 SIGNATURE
 TODO
 META.yml                                 Module meta-data (added by MakeMaker)
-t/gen_graph.t
+t/00_basic.t
+t/01_html.t
+t/lib/Test.pm

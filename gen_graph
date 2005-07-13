@@ -10,7 +10,7 @@ use Time::HiRes qw/time/;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.03;
+$VERSION = 0.04;
 
 # mapping file format to extension
 my $ext = {
@@ -31,6 +31,7 @@ my $opt = {
   recurse => '',
   versions => 0,
   debug => 0,
+  generator => 'dot',
   };
 # mapping usage count to color name
 my $color_table = {
@@ -86,6 +87,7 @@ sub get_options
     'color=i' => \$opt->{color},
     'debug' => \$opt->{debug},
     'format=s' => \$opt->{format},
+    'generator=s' => \$opt->{generator},
     'help' => \$opt->{help},
     'inc=s' => \$opt->{inc},
     'nocolor!' => \$opt->{nocolor},
@@ -354,7 +356,7 @@ sub output_file
 
   if ($method =~ 'as_(svg|graphviz)_file')
     {
-    $file = "|dot -T$e -o '$file'";
+    $file = "|$opt->{generator} -T$e -o '$file'";
     $method = 'as_graphviz_file';
     }
   else
@@ -408,13 +410,13 @@ Options:
 	--nocolor		sets color to 0 (like --color=0, no color at all)
 	--inc=path[,path2,..]	path to source tree or a single file
 				if not specified, @INC from Perl will be used
-	--recurse=p[,p2,..]	recursively track all packages from this package "p"
+	--recurse=p[,p2,..]	recursively track all packages from package "p"
 	--format		the output format, default "graphviz", valid are:
 				  ascii
 				  html
 				  graphviz
 				  svg
-				For the latter two formats you need "dot" install.
+				For the latter two formats you need "dot" installed
 	--output		name of the output file, default "usage". The file
 				extension will be determined by the --format option.
 	--versions		include package version number in graph nodes.

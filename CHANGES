@@ -1,5 +1,10 @@
 Revision history for gen_graph - generate graphs from Perl package use statements
 
+2005-07-13 v0.04 Tels  10 tests
+  * fix typos in SYNOPSIS
+  * more tests: generating HTML/ASCII
+  * make tests (hopefully) run under MSWin32
+
 2005-07-10 v0.03 Tels  6 tests
   * remove doubles from @INC when running w/o --recurse
   * guard against versions with '"' in them (like sprintf etc)

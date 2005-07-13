@@ -12,14 +12,15 @@ sub MY::metafile {
 
   my $node = new YAML::Node {};
 
-  $node->{name}                 = $self->{DISTNAME};
-  $node->{version}              = $self->{VERSION};
-  $node->{version_from}         = $self->{VERSION_FROM};
-  $node->{license}              = 'gpl';
-  $node->{distribution_type}    = 'module';
-  $node->{generated_by}         = "$self->{DISTNAME} version $self->{VERSION}";
-  $node->{installdirs}          = 'site';
-  $node->{requires}             = $self->{PREREQ_PM};
+  $node->{name}			= $self->{DISTNAME};
+  $node->{abstract}		= $self->{ABSTRACT};
+  $node->{version}		= $self->{VERSION};
+  $node->{version_from}		= $self->{VERSION_FROM};
+  $node->{license}		= 'gpl';
+  $node->{distribution_type}	= 'module';
+  $node->{generated_by}		= "$self->{DISTNAME} version $self->{VERSION}";
+  $node->{installdirs}		= 'site';
+  $node->{requires}		= $self->{PREREQ_PM};
 
   my $dump = YAML::Dump( $node );
 
@@ -44,9 +45,9 @@ WriteMakefile(
     VERSION_FROM	=> 'gen_graph', # finds $VERSION
     PREREQ_PM		=> {
 	Graph => 0.65,
-	Graph::Easy => 0.21,
+	Graph::Easy => 0.22,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT  => 'generate graph with usage patterns from Perl packages', # retrieve abstract from module
+      (ABSTRACT  => 'graph Perl Package usage',
        AUTHOR         => 'Tels <nospam-abuse@bloodgate.com>') : ()),
 );
