@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 4;
+   plan tests => 8;
    chdir 't' if -d 't';
    };
 
@@ -14,26 +14,39 @@ $gen = 'perl ..\\' if $^O =~ /MSWin32/i;
 $gen .= 'gen_graph';
 
 #############################################################################
-# --format=html
+# --format=foo tests
 
-my $out = "usage.html";
+test_out ('html', 'usage.html');
 
-unlink $out; my $rc = `$gen --inc=lib/Test.pm --format=html --output=$out`;
-ok (-f $out, "$out exists");
+test_out ('ascii', 'usage.txt');
 
-unlink $out; $rc = `$gen --inc=lib/Test.pm --format=html --output=usage`;
-ok (-f $out, "$out exists");
+# all tests done;
 
-unlink $out; $rc = `$gen --inc=lib/Test.pm --format=html --versions --output=usage`;
-ok (-f $out, "$out exists");
+#############################################################################
 
-unlink $out; $rc = `$gen --inc=lib/Test.pm --format=html --versions --debug --output=usage`;
-ok (-f $out, "$out exists");
+sub test_out
+  {
+  # format, outfile
+  my ($f,$out) = @_;
+
+  unlink $out; my $rc = `$gen --inc=lib/Test.pm --format=$f --output=$out`;
+  ok (-f $out, "$out exists");
+
+  unlink $out; $rc = `$gen --inc=lib/Test.pm --format=$f --output=usage`;
+  ok (-f $out, "$out exists");
+
+  unlink $out; $rc = `$gen --inc=lib/Test.pm --format=$f --versions --output=usage`;
+  ok (-f $out, "$out exists");
+
+  unlink $out; $rc = `$gen --inc=lib/Test.pm --format=$f --versions --debug --output=usage`;
+  ok (-f $out, "$out exists");
+  }
 
 END
   {
   # clean up
   unlink "usage.html";
+  unlink "usage.txt";
   }
 
 

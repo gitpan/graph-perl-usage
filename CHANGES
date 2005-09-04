@@ -1,5 +1,14 @@
 Revision history for gen_graph - generate graphs from Perl package use statements
 
+2005-09-04 v0.05 Tels  14 tests
+  * add README
+  * require Graph::Easy 0.27
+  * fix fill vs. background
+  * add option --flow
+  * add format --extension (especially usefull for --format=graphviz, this
+    allows you to create ".jpg", ".svg", ".ps" etc via dot et. al.)
+  * on ASCII output, make node borders bold and "require"-edges dotted
+
 2005-07-13 v0.04 Tels  10 tests
   * fix typos in SYNOPSIS
   * more tests: generating HTML/ASCII

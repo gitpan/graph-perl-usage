@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use lib 'lib';
-use Graph::Easy 0.21;
+use Graph::Easy 0.27;
 use Getopt::Long;
 use File::Spec;
 use File::Find;
@@ -10,19 +10,21 @@ use Time::HiRes qw/time/;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.04;
+$VERSION = 0.05;
 
-# mapping file format to extension
+# mapping format to method (all) and file extension (except for graphviz)
 my $ext = {
   html => 'html',
-  graphviz => 'png',
+  graphviz => 'graphviz',
   svg => 'svg',
   ascii => 'txt',
   };
+
 # where the user options are stored (plus defaults for them)
 my $opt = {
   format => 'graphviz',
   output_file => 'usage',
+  extension => 'png',
   inc => '',
   color => 1,
   nocolor => 0,
@@ -32,6 +34,8 @@ my $opt = {
   versions => 0,
   debug => 0,
   generator => 'dot',
+  flow => 'south',
+  dotted => 0,		# dotted edges for "require"?
   };
 # mapping usage count to color name
 my $color_table = {
@@ -96,6 +100,8 @@ sub get_options
     'verbose+' => \$opt->{verbose},
     'version' => \$opt->{version},
     'versions!' => \$opt->{versions},
+    'flow=s' => \$opt->{flow},
+    'extension=s' => \$opt->{extension},
     );
   return if @ARGV == 0;			# no options?
 
@@ -106,6 +112,13 @@ sub get_options
 
   $opt->{color} = 0 if $opt->{nocolor};
   delete $opt->{nocolor};
+
+  # if output is ascii, disable coloring of edges
+  if ($opt->{format} eq 'ascii')
+    {
+    $opt->{dotted} = 1; 
+    $opt->{color} = 0;
+    }
 
   $rc;
   }
@@ -164,6 +177,9 @@ sub gather_data
   my ($opt) = shift;
 
   my $graph = Graph::Easy->new();
+
+  $graph->set_attribute('edge', 'color', 'grey');
+  $graph->set_attribute('graph','flow', $opt->{flow});
 
   my @inc = split /\s*,\s*/, $opt->{inc};
   @inc = _inc($opt) unless $opt->{inc};
@@ -280,7 +296,8 @@ sub parse_file
       $name = $1;
       # If not yet in graph, add. Store ptr in $src.
       $src = $graph->add_node($name);
-      $src->set_attribute('background', '#ffffff');	# for no color and dot output
+      $src->set_attribute('fill', '#ffffff');		# for no color and dot output
+      $src->set_attribute('border', 'bold') if $opt->{dotted};
       $ver = '';
       }
 
@@ -291,13 +308,14 @@ sub parse_file
       {
       my $type = $1;
       my $pck = $2;
-      my $color = '#808080'; $color = 'grey' if $type =~ /require/;
+      my $color = ''; $color = '#c0c0c0' if $type =~ /require/;
       next if $pck =~ /v\d/;		# skip "v5..."
 
       push @rc, $pck;					# for returning it	
       # if not yet in graph, add.
       my $dst = $graph->add_node($pck);
-      $dst->set_attribute('background', '#ffffff');	# for no color and dot output
+      $dst->set_attribute('fill', '#ffffff');		# for no color and dot output
+      $dst->set_attribute('border', 'bold') if $opt->{dotted};
       print "  $src->{name} => $dst->{name}\n" if $opt->{verbose} > 2;
 
       # make sure to add each edge only once (double processing or something)
@@ -305,7 +323,8 @@ sub parse_file
       next if $edge;
 
       $edge = $graph->add_edge ($src, $dst);		# '$src' uses '$dst'
-      $edge->set_attribute('color', $color) if $opt->{color};
+      $edge->set_attribute('color', $color) if $opt->{color} && $color;
+      $edge->set_attribute('style', 'dotted') if $opt->{dotted} && $color;
       }
     }
 
@@ -335,7 +354,7 @@ sub colorize
       }
 
     my $color = $color_table->{$cnt} || '#d00000';
-    $node->set_attribute ('background', $color);
+    $node->set_attribute ('fill', $color);
     $node->set_attribute ('title', "$cnt");
     }
   }
@@ -346,18 +365,23 @@ sub output_file
   my ($graph, $opt) = @_;
 
   my $file = $opt->{output_file};
+  
   my $e = $ext->{$opt->{format}};
+  $e = $opt->{extension} if $e eq 'graphviz';
+
   $file .= '.' . $e unless $file =~ /\.$e/;
+
   my $method = 'as_' . $opt->{format} . '_file';
 
   print "\n  Format: $opt->{format}\n";
-  print "  Output to: $file\n";
+  print "  Output to: '$file'\n";
   print "  Method: $method\n";
+  print "  Generator: $opt->{generator}\n" if $opt->{format} eq 'graphviz';
 
-  if ($method =~ 'as_(svg|graphviz)_file')
+  if ($method eq 'as_graphviz_file')
     {
     $file = "|$opt->{generator} -T$e -o '$file'";
-    $method = 'as_graphviz_file';
+#    $file = ">$file";
     }
   else
     {
@@ -365,6 +389,8 @@ sub output_file
     }
   
   my $starttime = time();
+  $graph->timeout(120);
+#  $graph->debug(1);
   my $rc = $graph->$method();
 
   if ($opt->{debug})
@@ -383,6 +409,7 @@ sub output_file
     {
     $starttime = time() - $starttime;
     printf ("  Debug: Took %0.2f seconds to write to \"$file\".\n", $starttime);
+    print $graph->$method();
     }
 
 #  print $graph->$method();
@@ -401,25 +428,45 @@ perl_graph_usage - generate graph with usage patterns from Perl packages
 	./gen_graph --inc=lib/ --format=graphviz --output=usage_graph
 	./gen_graph --nocolor --inc=lib --format=ascii
 	./gen_graph --recurse=Graph::Easy
+	./gen_graph --recurse=Graph::Easy --format=graphviz --ext=svg
+	./gen_graph --recurse=var --format=graphviz --ext=jpg
 
 Options:
 
 	--color=X		0: uncolored output
 				1: default, colorize nodes on how much packages they use
 				2: colorize nodes on how much packages use them
-	--nocolor		sets color to 0 (like --color=0, no color at all)
-	--inc=path[,path2,..]	path to source tree or a single file
+	--nocolor		Sets color to 0 (like --color=0, no color at all)
+
+	--inc=path[,path2,..]	Path to source tree or a single file
 				if not specified, @INC from Perl will be used
 	--recurse=p[,p2,..]	recursively track all packages from package "p"
-	--format		the output format, default "graphviz", valid are:
-				  ascii
-				  html
-				  graphviz
-				  svg
-				For the latter two formats you need "dot" installed
-	--output		name of the output file, default "usage". The file
-				extension will be determined by the --format option.
+
+	--output		Base-name of the output file, default "usage".
+	--format		The output format, default "graphviz", valid are:
+				  ascii (via Graph::Easy)
+				  html (via Graph::Easy)
+				  svg (via Graph:Easy)
+				  graphviz (see --generator below)
+	--generator		Feed the graphviz output to this program, default "dot".
+				It must be installed and in your path.
+	--extension		Extension of the output file. For "graphviz" it will
+				change the format of the output to produce the appr.
+				file type.  For all other formats it will merely set
+				the filename extension. It defaults to:
+				  Format	Extension
+				  ascii		txt
+				  html		html
+				  svg		svg
+				  graphviz	png
+	--flow			The output flows into this direction. Default "south".
+				Possible are:
+				  north
+				  west
+				  east
+				  south
 	--versions		include package version number in graph nodes.
+
 	--debug			print some timing and statistics info.
 
 Help and version:
@@ -434,12 +481,13 @@ Todo
 
 =head2 Output formats
 
-C<html> and C<ascii> are rendered via Graph::Easy. The have thus quite a few limitations
-and only work good for simple graphs. C<svg> and C<graphviz> are rendered via C<dot> and
-can have arbitrary large graphs.
+Formats rendered via Graph::Easy (HTML, ASCII and SVG) have a few limitations
+and only work good for small to medium sized graphs. The output format
+C<graphviz> is rendered via C<dot> or other programs and can have arbitrary large
+graphs.
 
 However, for entire source trees like the complete Perl source, the output becomes
-unlegible and cramped.
+unlegible and cramped even with C<dot>.
 
 I hope I can improve this in time.
 

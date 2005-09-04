@@ -31,21 +31,20 @@ sub MY::metafile {
 }
 
 # svg is done via dot, too.
-#eval { require Graph::Easy::As_svg; };
-#
-#if (!defined $Graph::Easy::As_svg::VERSION)
-#  {
-#  print "\n************\nWARNING: ";
-#  print "You do not seem to have Graph::Easy::As_svg installed.\n";
-#  print "         SVG output is not possible until you install it afterwards.\n\n";
-#  }
+eval { require Graph::Easy::As_svg; };
+
+if (!defined $Graph::Easy::As_svg::VERSION)
+  {
+  print "\n************\nWARNING: ";
+  print "You do not seem to have Graph::Easy::As_svg installed.\n";
+  print "         SVG output (without dot) is not possible until you install it afterwards.\n\n";
+  }
 
 WriteMakefile(
     NAME		=> 'graph-perl-usage',
     VERSION_FROM	=> 'gen_graph', # finds $VERSION
     PREREQ_PM		=> {
-	Graph => 0.65,
-	Graph::Easy => 0.22,
+	Graph::Easy => 0.27,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT  => 'graph Perl Package usage',

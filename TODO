@@ -28,6 +28,5 @@
 * Edges should as title have the connection (A => B), and nodes a text like:
   "vX.YZ uses x, is used by y"
 
-* allow using of "neato", "circo" etc instead of dot
 * implement --depth (max recursion level)
 * implement --mode=(recurse|glob), remove --recurse, implement --use and --skip
