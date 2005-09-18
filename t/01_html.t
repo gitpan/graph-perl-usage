@@ -5,7 +5,7 @@ use strict;
 
 BEGIN
    {
-   plan tests => 8;
+   plan tests => 12;
    chdir 't' if -d 't';
    };
 
@@ -39,6 +39,12 @@ sub test_out
   ok (-f $out, "$out exists");
 
   unlink $out; $rc = `$gen --inc=lib/Test.pm --format=$f --versions --debug --output=usage`;
+  ok (-f $out, "$out exists");
+
+  unlink $out; $rc = `$gen --inc=lib/Test.pm --format=$f --versions --debug --output=usage --extension=$f`;
+  ok (-f $out, "$out exists");
+
+  unlink $out; $rc = `$gen --inc=lib/Test.pm --format=$f --versions --debug --output=usage --extension=.$f`;
   ok (-f $out, "$out exists");
   }
 

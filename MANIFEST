@@ -1,11 +1,12 @@
 gen_graph
+README
 CHANGES
-Makefile.PL
-MANIFEST
 LICENSE
+MANIFEST
+META.yml                                 Module meta-data (added by MakeMaker)
 SIGNATURE
 TODO
-META.yml                                 Module meta-data (added by MakeMaker)
+Makefile.PL
 t/00_basic.t
 t/01_html.t
 t/lib/Test.pm

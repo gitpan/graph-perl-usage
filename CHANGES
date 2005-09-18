@@ -1,5 +1,13 @@
 Revision history for gen_graph - generate graphs from Perl package use statements
 
+2005-09-10 v0.06 Tels  18 tests
+  * include README for real
+  * require Graph::Easy 0.29
+  * handle --extension=.ext (in addition to --extension=ext)
+  * add --format=dot to output raw graphviz code
+  * add --skip='regexp' to exclude packages from output
+  * skip "Your::Module::Here" (from CPANPLUS::Internals::Constants::Report)
+
 2005-09-04 v0.05 Tels  14 tests
   * add README
   * require Graph::Easy 0.27

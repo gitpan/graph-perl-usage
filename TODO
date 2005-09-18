@@ -29,4 +29,4 @@
   "vX.YZ uses x, is used by y"
 
 * implement --depth (max recursion level)
-* implement --mode=(recurse|glob), remove --recurse, implement --use and --skip
+* implement --mode=(recurse|glob), remove --recurse, implement --use
