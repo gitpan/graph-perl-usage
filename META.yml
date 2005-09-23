@@ -1,11 +1,11 @@
 --- #YAML:1.0
 name: graph-perl-usage
 abstract: graph Perl Package usage
-version: 0.06
+version: 0.07
 version_from: gen_graph
 license: gpl
 distribution_type: module
-generated_by: graph-perl-usage version 0.06
+generated_by: graph-perl-usage version 0.07
 installdirs: site
 requires:
-  Graph::Easy: 0.29
+  Graph::Easy: 0.3

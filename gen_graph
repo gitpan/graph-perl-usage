@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use lib 'lib';
-use Graph::Easy 0.28;
+use Graph::Easy 0.30;
 use Getopt::Long;
 use File::Spec;
 use File::Find;
@@ -10,7 +10,7 @@ use Time::HiRes qw/time/;
 
 use vars qw/$VERSION/;
 
-$VERSION = 0.06;
+$VERSION = 0.07;
 
 # mapping format to method (all) and file extension (except for graphviz)
 my $ext = {
@@ -507,21 +507,34 @@ Help and version:
 
 =head1 DESCRIPTION
 
-Todo
+This script traces the usage of Perl packages by other Perl packages from
+C<use> and C<require> statements and plots the result as a graph.
+
+Due to the nature of the parsing it might miss a few connections, or even
+generate wrong positives. However, the goal is to provide a map of what
+packages your module/package I<really> uses. This can be quite different
+from what the dependency-tree in Makefile.PL states.
+
+=head1 TODO
 
 =head2 Output formats
 
 Formats rendered via Graph::Easy (HTML, ASCII and SVG) have a few limitations
-and only work good for small to medium sized graphs. The output format
-C<graphviz> is rendered via C<dot> or other programs and can have arbitrary large
-graphs.
+and only work good for small to medium sized graphs.
+
+The output format C<graphviz> is rendered via C<dot> or other programs and can
+have arbitrary large graphs.
 
 However, for entire source trees like the complete Perl source, the output becomes
-unlegible and cramped even with C<dot>.
+unlegible and cramped even when using C<dot>.
 
 I hope I can improve this in time.
 
 =head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms of the GPL version 2.
+See the LICENSE file for information.
 
 =head1 AUTHOR
 

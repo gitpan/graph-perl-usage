@@ -44,7 +44,7 @@ WriteMakefile(
     NAME		=> 'graph-perl-usage',
     VERSION_FROM	=> 'gen_graph', # finds $VERSION
     PREREQ_PM		=> {
-	Graph::Easy => 0.29,
+	Graph::Easy => 0.30,
 	},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT  => 'graph Perl Package usage',
